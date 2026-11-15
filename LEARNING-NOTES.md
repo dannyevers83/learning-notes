@@ -10,6 +10,7 @@ Quick links:
 
 - [HTML and page setup](#html-document-setup)
 - [CSS selectors working together](#how-selectors-work-together)
+- [CSS properties: purpose, values, and examples](#css-property-reference)
 - [JavaScript basics](#javascript-essentials)
 - [Callbacks and arrow functions](#callbacks-and-arrow-functions)
 - [filter, map, and find](#filter-map-and-find)
@@ -352,6 +353,405 @@ Custom properties begin with `--` and are read using `var(...)`. They help keep 
 
 A translucent background color affects that background. `opacity` affects the whole rendered element, including descendants.
 
+## CSS property reference
+
+A **selector** chooses elements. A **property** describes what to change. A **value** describes how it should change.
+
+```css
+.card {
+  background-color: #172238;
+}
+```
+
+Here, `.card` is the selector, `background-color` is the property, and `#172238` is its value.
+
+This is a reference for common properties, not every CSS property. Start with the group that matches the problem you want to solve:
+
+- [Colors and backgrounds](#colors-and-background-properties)
+- [Size and dimensions](#size-and-dimension-properties)
+- [Spacing](#spacing-properties)
+- [Display and visibility](#display-and-visibility-properties)
+- [Text](#text-and-font-properties)
+- [Borders and shadows](#border-outline-and-shadow-properties)
+- [Flexbox](#flexbox-properties)
+- [Grid](#grid-properties)
+- [Positioning and layers](#position-and-layer-properties)
+- [Images and overflowing content](#image-and-overflow-properties)
+- [Interaction and transitions](#interaction-and-transition-properties)
+
+### Colors and background properties
+
+| Property              | Example                              | What it changes                                             |
+| --------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| `color`               | `color: #e2e8f0`                     | Foreground/text color; descendants can inherit it           |
+| `background-color`    | `background-color: #0f172a`          | Only the background color                                   |
+| `background-image`    | `background-image: url('photo.jpg')` | Background image or gradient; not the content of an `<img>` |
+| `background-position` | `background-position: center`        | Position of the background image                            |
+| `background-size`     | `background-size: cover`             | Size of the background image                                |
+| `background-repeat`   | `background-repeat: no-repeat`       | Whether the background image tiles                          |
+| `background`          | `background: #0f172a`                | Shorthand that sets multiple background properties          |
+| `opacity`             | `opacity: 0.7`                       | Transparency of the whole element and its contents          |
+
+#### background versus background-color
+
+Use `background-color` when you want to change only the color:
+
+```css
+.banner {
+  background-image: url("photo.jpg");
+  background-color: navy;
+}
+```
+
+The image remains. Color is painted behind it and will not show through fully opaque parts.
+
+By contrast, the `background` shorthand resets background properties that you do not specify:
+
+```css
+.banner {
+  background-image: url("photo.jpg");
+  background: navy; /* Also resets background-image to none. */
+}
+```
+
+You can specify several settings at once:
+
+```css
+.banner {
+  background: navy url("photo.jpg") center / cover no-repeat;
+}
+```
+
+This sets a color, image, position, size, and repeat behavior. The `/` separates position from size. See [MDN: background](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/background).
+
+For a translucent background without fading the text:
+
+```css
+.panel {
+  background-color: rgba(15, 23, 42, 0.8);
+}
+```
+
+A gradient is a background image:
+
+```css
+.banner {
+  background-image: linear-gradient(135deg, #0f172a, #164e63);
+}
+```
+
+### Size and dimension properties
+
+| Property       | Example                  | What it changes                                         |
+| -------------- | ------------------------ | ------------------------------------------------------- |
+| `width`        | `width: 100%`            | Preferred width, subject to layout constraints          |
+| `height`       | `height: 200px`          | Preferred height                                        |
+| `min-width`    | `min-width: 0`           | Lower width limit; can allow flex/grid items to shrink  |
+| `max-width`    | `max-width: 760px`       | Upper width limit                                       |
+| `min-height`   | `min-height: 100vh`      | Minimum height; content may make it taller              |
+| `max-height`   | `max-height: 300px`      | Upper height limit; overflow must be handled separately |
+| `aspect-ratio` | `aspect-ratio: 16 / 9`   | Preferred width-to-height ratio                         |
+| `box-sizing`   | `box-sizing: border-box` | Whether declared dimensions include padding and borders |
+
+A responsive, centered content area:
+
+```css
+.container {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+```
+
+The box uses available width up to 760px. A maximum is a limit, not a promise that the element will always be that wide.
+
+`min-height` is often more flexible than a fixed `height` when text can wrap. A percentage height usually needs a suitable definite containing-block height; `height: 100%` does not automatically mean viewport height.
+
+`border-box` includes padding and borders, but never margins. See [MDN: box-sizing](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/box-sizing).
+
+### Spacing properties
+
+| Property                                                         | Example                | What it changes                                                      |
+| ---------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| `margin`                                                         | `margin: 2rem 0`       | Space outside the border                                             |
+| `margin-top`, `margin-bottom`                                    | `margin-top: 1rem`     | Outside spacing on one side                                          |
+| `margin-left`, `margin-right`                                    | `margin-left: auto`    | Outside spacing; auto margins can absorb available space             |
+| `padding`                                                        | `padding: 1rem 2rem`   | Space inside the border                                              |
+| `padding-top`, `padding-right`, `padding-bottom`, `padding-left` | `padding-left: 0.5rem` | Inside spacing on one side                                           |
+| `gap`                                                            | `gap: 1rem`            | Gaps between grid/flex items                                         |
+| `row-gap`                                                        | `row-gap: 2rem`        | Gaps between grid rows or flex lines/items depending on direction    |
+| `column-gap`                                                     | `column-gap: 1rem`     | Gaps between grid columns or flex items/lines depending on direction |
+
+Shorthand order:
+
+```css
+.card {
+  padding: 1rem; /* All sides. */
+  padding: 1rem 2rem; /* Top/bottom, left/right. */
+  padding: 1rem 2rem 3rem; /* Top, left/right, bottom. */
+  padding: 1rem 2rem 3rem 4rem; /* Top, right, bottom, left. */
+}
+```
+
+These are alternative examples; if you write all four declarations together, the last one wins.
+
+To separate child items, inspect the parent's `gap`. To move content away from its own border, inspect `padding`. To separate independent boxes, inspect margins. Do not assume all visible empty space is padding.
+
+### Display and visibility properties
+
+| Property/value          | Meaning                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| `display: block`        | A block-level box with normal flow inside                                                   |
+| `display: inline`       | Participates in text flow; width/height do not normally size non-replaced inline boxes      |
+| `display: inline-block` | An inline-level box that accepts width and height                                           |
+| `display: flex`         | A block-level flex container                                                                |
+| `display: grid`         | A block-level grid container                                                                |
+| `display: none`         | Removes the element and descendants from layout and accessibility APIs                      |
+| `visibility: hidden`    | Hides a box while preserving its layout space; normally also hidden from accessibility APIs |
+| `opacity: 0`            | Makes content transparent while its layout and interaction can remain                       |
+
+`display` affects both how an element participates in its outer layout and how its children are laid out. See [MDN: display](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display).
+
+Transparent content is not necessarily disabled or inaccessible. Choose a hiding method based on the actual behavior you need.
+
+### Text and font properties
+
+| Property                | Example                          | What it changes                                                |
+| ----------------------- | -------------------------------- | -------------------------------------------------------------- |
+| `font-family`           | `font-family: Arial, sans-serif` | Font choices and fallback                                      |
+| `font-size`             | `font-size: 1rem`                | Text size                                                      |
+| `font-weight`           | `font-weight: 600`               | Text weight, when supported by the font                        |
+| `font-style`            | `font-style: italic`             | Italic or normal style                                         |
+| `line-height`           | `line-height: 1.6`               | Height of line boxes                                           |
+| `letter-spacing`        | `letter-spacing: 0.05em`         | Spacing between characters                                     |
+| `text-align`            | `text-align: center`             | Alignment of inline content inside the box                     |
+| `text-transform`        | `text-transform: uppercase`      | Displayed letter case                                          |
+| `text-decoration`       | `text-decoration: line-through`  | Decoration such as underline or strike-through                 |
+| `text-underline-offset` | `text-underline-offset: 0.2em`   | Distance between text and its underline                        |
+| `white-space`           | `white-space: nowrap`            | Whitespace handling and wrapping                               |
+| `overflow-wrap`         | `overflow-wrap: anywhere`        | Allows long text to break when needed                          |
+| `text-overflow`         | `text-overflow: ellipsis`        | Marks clipped inline text, when clipping and sizing are set up |
+
+`text-align: center` centers text, not the element's box itself. Use layout rules or margins to position the box.
+
+A common single-line truncation pattern:
+
+```css
+.title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+```
+
+The element also needs a constrained width to overflow. In a flex or grid layout, `min-width: 0` on the relevant item may be needed.
+
+### Border, outline, and shadow properties
+
+| Property         | Example                                     | What it changes                                      |
+| ---------------- | ------------------------------------------- | ---------------------------------------------------- |
+| `border`         | `border: 1px solid #334155`                 | Border width, style, and color together              |
+| `border-width`   | `border-width: 2px`                         | Border thickness                                     |
+| `border-style`   | `border-style: dashed`                      | Border pattern                                       |
+| `border-color`   | `border-color: teal`                        | Border color                                         |
+| `border-bottom`  | `border-bottom: 1px solid #334155`          | One border side                                      |
+| `border-radius`  | `border-radius: 0.5rem`                     | Rounded corners                                      |
+| `outline`        | `outline: 2px solid teal`                   | An outline that does not consume layout space        |
+| `outline-offset` | `outline-offset: 4px`                       | Distance between outline and box                     |
+| `box-shadow`     | `box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2)` | A visual shadow without reserving extra layout space |
+
+A border needs a visible style such as `solid`; setting only a width or color may not show one. A radius alone does not crop an image to the same corners: use an appropriate clipping rule on the container when needed.
+
+Keep visible keyboard focus:
+
+```css
+button:focus-visible {
+  outline: 2px solid #5eead4;
+  outline-offset: 4px;
+}
+```
+
+### Flexbox properties
+
+Parent/container properties:
+
+| Property          | Example                          | What it controls                                                |
+| ----------------- | -------------------------------- | --------------------------------------------------------------- |
+| `display`         | `display: flex`                  | Enables Flexbox                                                 |
+| `flex-direction`  | `flex-direction: column`         | Main-axis direction                                             |
+| `flex-wrap`       | `flex-wrap: wrap`                | Whether items wrap onto additional lines                        |
+| `justify-content` | `justify-content: space-between` | Main-axis distribution                                          |
+| `align-items`     | `align-items: center`            | Cross-axis alignment of items                                   |
+| `align-content`   | `align-content: start`           | Distribution of flex lines when there is extra cross-axis space |
+| `gap`             | `gap: 0.75rem`                   | Spacing between items/lines                                     |
+
+Child/item properties:
+
+| Property      | Example                  | What it controls                                     |
+| ------------- | ------------------------ | ---------------------------------------------------- |
+| `flex-grow`   | `flex-grow: 1`           | Share of positive free space                         |
+| `flex-shrink` | `flex-shrink: 0`         | Whether/how much an item shrinks when space is short |
+| `flex-basis`  | `flex-basis: 200px`      | Initial main size before flex distribution           |
+| `flex`        | `flex: 1 1 200px`        | Grow, shrink, and basis shorthand                    |
+| `align-self`  | `align-self: flex-start` | One item's cross-axis alignment                      |
+| `order`       | `order: 2`               | Visual order, without changing source reading order  |
+
+In a typical horizontal writing mode, `row` makes the main axis horizontal and `column` makes it vertical. Therefore `justify-content` is not always horizontal and `align-items` is not always vertical.
+
+A container's `align-items` and a child's `align-self` work together. The child can override its own alignment; it does not change its siblings.
+
+### Grid properties
+
+| Where  | Property                     | Example                         | What it controls                                 |
+| ------ | ---------------------------- | ------------------------------- | ------------------------------------------------ |
+| Parent | `grid-template-columns`      | `repeat(3, minmax(0, 1fr))`     | Explicit column tracks                           |
+| Parent | `grid-template-rows`         | `auto 1fr auto`                 | Explicit row tracks                              |
+| Parent | `grid-auto-rows`             | `minmax(100px, auto)`           | Size of automatically created rows               |
+| Parent | `grid-template-areas`        | `"header header" "nav content"` | Named regions                                    |
+| Parent | `gap`                        | `1rem`                          | Space between tracks                             |
+| Parent | `justify-items`              | `start`                         | Items' inline-axis alignment in their grid areas |
+| Parent | `align-items`                | `center`                        | Items' block-axis alignment in their grid areas  |
+| Parent | `place-items`                | `center`                        | Shorthand for align-items and justify-items      |
+| Child  | `grid-column`                | `1 / -1`                        | Column placement or span                         |
+| Child  | `grid-row`                   | `span 2`                        | Row placement or span                            |
+| Child  | `grid-area`                  | `header`                        | Named area or placement shorthand                |
+| Child  | `justify-self`, `align-self` | `justify-self: end`             | One item's alignment                             |
+
+Flexbox is often useful for one-dimensional arrangements. Grid is often useful when coordinating rows and columns. They can be nested and used together.
+
+### Position and layer properties
+
+| Property                         | Example              | What it controls                     |
+| -------------------------------- | -------------------- | ------------------------------------ |
+| `position`                       | `position: relative` | Positioning mode                     |
+| `top`, `right`, `bottom`, `left` | `top: 0`             | Insets for positioned boxes          |
+| `inset`                          | `inset: 0`           | Shorthand for all four insets        |
+| `z-index`                        | `z-index: 10`        | Stack level within stacking contexts |
+
+```css
+.card {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+```
+
+The positioned card supplies the badge's containing block in this layout. The badge leaves normal flow; other content does not automatically reserve space for it.
+
+`top: 0` does not move an ordinary static element. Check its positioning mode first. A large `z-index` cannot escape an ancestor's stacking context.
+
+### Image and overflow properties
+
+| Property                   | Example                       | What it controls                               |
+| -------------------------- | ----------------------------- | ---------------------------------------------- |
+| `object-fit`               | `object-fit: cover`           | How image/video content fits its element's box |
+| `object-position`          | `object-position: center top` | Alignment of that content within its box       |
+| `overflow`                 | `overflow: auto`              | Handling content that exceeds a box            |
+| `overflow-x`, `overflow-y` | `overflow-y: auto`            | Overflow handling for one axis                 |
+
+`cover` fills the box with possible cropping. `contain` shows the whole image with possible empty space. These differ from `background-size`, which controls background images.
+
+`overflow: hidden` clips overflow; `auto` allows scrolling when needed. Overflow on ancestors can affect sticky positioning, and clipping can hide focus outlines.
+
+### Interaction and transition properties
+
+| Property                     | Example                            | What it controls                                                |
+| ---------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| `cursor`                     | `cursor: pointer`                  | Pointer appearance; does not create click behavior              |
+| `accent-color`               | `accent-color: teal`               | Accent of supported native controls, such as checkboxes         |
+| `appearance`                 | `appearance: none`                 | Native control appearance; custom styling needs care            |
+| `user-select`                | `user-select: none`                | Whether users can select text                                   |
+| `pointer-events`             | `pointer-events: none`             | Pointer hit testing; does not by itself disable keyboard access |
+| `scroll-behavior`            | `scroll-behavior: smooth`          | How relevant programmatic/fragment scrolling behaves            |
+| `scroll-margin-top`          | `scroll-margin-top: 5rem`          | Scroll target offset, useful under sticky headers               |
+| `transition`                 | `transition: color 200ms ease`     | Animated change between property values                         |
+| `transition-property`        | `transition-property: color`       | Which properties transition                                     |
+| `transition-duration`        | `transition-duration: 200ms`       | Transition length                                               |
+| `transition-timing-function` | `transition-timing-function: ease` | Transition pacing                                               |
+| `transform`                  | `transform: translateY(-2px)`      | Visual transformation without normal-flow re-layout             |
+
+A `cursor` style does not replace a real `<button>`. `pointer-events: none` is not a substitute for a button's `disabled` attribute.
+
+Use transitions for deliberate effects and respect reduced-motion preferences. Write transitions on the normal state if you want them when entering and leaving hover/focus.
+
+### Properties versus other CSS tools
+
+Some CSS features are not properties:
+
+| Feature                 | Kind                  | Example                                         |
+| ----------------------- | --------------------- | ----------------------------------------------- |
+| `.card:hover`           | Selector              | Chooses a hovered card                          |
+| `::before`              | Pseudo-element        | A generated box                                 |
+| `@media`                | At-rule               | Conditionally applies rules                     |
+| `var()`                 | Function              | Reads a custom property                         |
+| `calc()`                | Function              | Calculates a value, such as `calc(100% - 2rem)` |
+| `min()` / `max()`       | Functions             | Choose the smallest/largest value               |
+| `clamp()`               | Function              | Bounds a preferred value between limits         |
+| `repeat()` / `minmax()` | Grid sizing functions | Define repeated and bounded tracks              |
+| `rem`, `px`, `fr`       | Units                 | Describe dimensions or grid shares              |
+
+```css
+.heading {
+  font-size: clamp(2rem, 5vw, 4rem);
+}
+```
+
+The heading prefers `5vw`, but will not become smaller than `2rem` or larger than `4rem` through this declaration.
+
+### A complete small card example
+
+```html
+<article class="example-card">
+  <h2>A useful idea</h2>
+  <p>A short explanation that can wrap onto multiple lines.</p>
+  <button type="button">Read more</button>
+</article>
+```
+
+```css
+.example-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 360px;
+  padding: 1.5rem;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  background-color: #172238;
+  color: #e2e8f0;
+}
+
+.example-card h2,
+.example-card p {
+  margin: 0;
+}
+
+.example-card p {
+  line-height: 1.6;
+}
+
+.example-card button {
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background-color: #5eead4;
+  color: #0f172a;
+  font: inherit;
+}
+```
+
+The card controls layout, inside spacing, frame, and default colors. The paragraph controls line spacing. The button adds its own colors and padding and overrides its flex alignment. These rules solve different parts of the same component.
+
+When looking up a property not listed here, use the [MDN CSS property index](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties).
+
 ## Box model and spacing
 
 ```text
@@ -548,7 +948,7 @@ Sticky positioning needs an inset such as `top: 0`. Its behavior depends on its 
 }
 
 .section-heading::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.9);
@@ -646,7 +1046,7 @@ This styles selected text. A selector such as `p::selection` limits the rule to 
 }
 
 .archive-link::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -785,7 +1185,7 @@ JavaScript variables hold values. Functions group reusable steps, and arrays and
 ```javascript
 const task = {
   id: 1,
-  title: 'Learn JavaScript',
+  title: "Learn JavaScript",
   completed: false,
 };
 
@@ -811,7 +1211,7 @@ Use **camelCase** for variables and functions: `taskList`, `findTaskById`. React
 Use `const` when a variable will not be reassigned. Use `let` when it will.
 
 ```javascript
-const title = 'Learn React';
+const title = "Learn React";
 let count = 0;
 count++;
 ```
@@ -819,8 +1219,8 @@ count++;
 `const` does not make objects or arrays immutable:
 
 ```javascript
-const titles = ['Learn JavaScript'];
-titles.push('Learn React'); // Allowed: changes the array's contents.
+const titles = ["Learn JavaScript"];
+titles.push("Learn React"); // Allowed: changes the array's contents.
 // titles = [];           // Not allowed: reassigns the variable.
 ```
 
@@ -829,10 +1229,10 @@ titles.push('Learn React'); // Allowed: changes the array's contents.
 ### Converting strings to numbers
 
 ```javascript
-Number('43.8'); // 43.8
-Number('43px'); // NaN
-parseInt('43px', 10); // 43
-parseInt('43.8', 10); // 43, not 44
+Number("43.8"); // 43.8
+Number("43px"); // NaN
+parseInt("43px", 10); // 43
+parseInt("43.8", 10); // 43, not 44
 ```
 
 `Number()` converts the whole value. `parseInt()` reads an integer prefix from a string; `10` means decimal. It does not round. An empty string becomes `0` with `Number()` but `NaN` with `parseInt()`.
@@ -1029,8 +1429,8 @@ Each method operates on the array returned by the previous step.
 
 ```javascript
 const tasks = [
-  { id: 1, title: 'Read a chapter', completed: false },
-  { id: 2, title: 'Write notes', completed: true },
+  { id: 1, title: "Read a chapter", completed: false },
+  { id: 2, title: "Write notes", completed: true },
 ];
 
 const titles = tasks
@@ -1076,7 +1476,7 @@ const extended = [...numbers, 4];
 ```
 
 ```javascript
-const original = { id: 1, title: 'Learn', completed: false };
+const original = { id: 1, title: "Learn", completed: false };
 const updated = { ...original, completed: true };
 ```
 
@@ -1133,9 +1533,9 @@ The **DOM** is the browser's object representation of the HTML document.
 ```
 
 ```javascript
-const listElement = document.querySelector('#item-list');
-const itemElement = document.createElement('li');
-itemElement.textContent = 'Read a chapter';
+const listElement = document.querySelector("#item-list");
+const itemElement = document.createElement("li");
+itemElement.textContent = "Read a chapter";
 listElement.appendChild(itemElement);
 ```
 
@@ -1158,8 +1558,8 @@ Use `textContent` for user-entered text rather than treating it as HTML.
 ### Events and handlers
 
 ```javascript
-button.addEventListener('click', () => {
-  console.log('Clicked');
+button.addEventListener("click", () => {
+  console.log("Clicked");
 });
 ```
 
@@ -1170,7 +1570,7 @@ The callback is the **event handler**: code that runs when the event occurs. It 
 - `submit`: submitting a form, including through Enter.
 
 ```javascript
-form.addEventListener('submit', (event) => {
+form.addEventListener("submit", (event) => {
   event.preventDefault();
   const title = input.value.trim();
   if (!title) return;
@@ -1201,13 +1601,13 @@ Browser code can use `document`. A normal Node.js process cannot: it has no HTML
 ## JSON and localStorage
 
 ```javascript
-localStorage.setItem('items', JSON.stringify(items));
+localStorage.setItem("items", JSON.stringify(items));
 ```
 
 `localStorage` stores strings. `JSON.stringify()` converts serializable data into JSON text.
 
 ```javascript
-const savedItems = localStorage.getItem('items');
+const savedItems = localStorage.getItem("items");
 if (savedItems !== null) {
   items = JSON.parse(savedItems);
 }
@@ -1263,7 +1663,7 @@ function Item(props) {
   return (
     <li>
       {props.title}
-      {props.completed ? ' — Done' : ' — To do'}
+      {props.completed ? " — Done" : " — To do"}
     </li>
   );
 }
@@ -1290,7 +1690,7 @@ Props are values supplied by a parent. Do not mutate them. `completed={false}` p
 ### State remembers values between renders
 
 ```jsx
-import { useState } from 'react';
+import { useState } from "react";
 
 function App() {
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(true);
