@@ -17,8 +17,14 @@ Quick links:
 - [OR conditions and filter switches](#conditions-booleans-and-logical-operators)
 - [Spread and immutable updates](#spread-syntax-and-immutable-updates)
 - [Browser events and the DOM](#browser-javascript-and-the-dom)
+- [Current-section navigation](#highlighting-the-current-section)
 - [Saving data locally](#json-and-localstorage)
 - [React components, props, and state](#react-components-and-jsx)
+- [Forms, callbacks, and shared state](#react-forms-and-shared-state)
+- [Hooks and saving React state](#react-hooks-and-browser-storage)
+- [Automated tests, one concept at a time](#automated-testing)
+- [Contrast, keyboard access, and audits](#contrast-keyboard-access-and-audits)
+- [APIs, error handling, and caching](#fetching-api-data-and-caching)
 - [Tools, PERN, and practice roadmap](#development-tools-and-application-stacks)
 - [Git and publishing](#git-and-publishing-basics)
 
@@ -67,6 +73,21 @@ Many interactions already work without JavaScript: links, form submission, fragm
 | `<body>`             | Contains the page content                                |
 
 External stylesheets can provide fonts or icon libraries. Loading a font does not automatically apply it: CSS must select it with `font-family`. A `preconnect` resource hint can establish an early connection to an external host. Font connections commonly use `crossorigin` as well.
+
+### Favicons and public assets
+
+A favicon is the small website icon shown in a browser tab. SVG, PNG, and ICO are possible formats; an ICO file is not mandatory when other supported icons are linked correctly.
+
+```html
+<link rel="icon" type="image/png" sizes="16x16" href="/favicons/icon-16.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicons/icon-32.png" />
+```
+
+The `sizes` value should match the image's actual dimensions. A browser can choose an appropriate size for the display.
+
+In a Vite app, a file at `public/favicons/icon-32.png` is served at `/favicons/icon-32.png`. The folder name `public` is not part of that URL. An ordinary static site does not automatically apply Vite's public-directory rules: its paths depend on what the web server serves as the root.
+
+After changing an icon, try a hard refresh if the browser still displays the cached version.
 
 ## Semantic HTML
 
@@ -398,7 +419,7 @@ Use `background-color` when you want to change only the color:
 
 ```css
 .banner {
-  background-image: url("photo.jpg");
+  background-image: url('photo.jpg');
   background-color: navy;
 }
 ```
@@ -409,7 +430,7 @@ By contrast, the `background` shorthand resets background properties that you do
 
 ```css
 .banner {
-  background-image: url("photo.jpg");
+  background-image: url('photo.jpg');
   background: navy; /* Also resets background-image to none. */
 }
 ```
@@ -418,7 +439,7 @@ You can specify several settings at once:
 
 ```css
 .banner {
-  background: navy url("photo.jpg") center / cover no-repeat;
+  background: navy url('photo.jpg') center / cover no-repeat;
 }
 ```
 
@@ -948,7 +969,7 @@ Sticky positioning needs an inset such as `top: 0`. Its behavior depends on its 
 }
 
 .section-heading::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.9);
@@ -1008,6 +1029,37 @@ A unitless `line-height`, such as `1.5`, scales with the element's font size. A 
 
 A line box contains more than just visible letter shapes. Two elements can have equal `gap` values but appear differently spaced because of font size, line height, or wrapping.
 
+### Applying an external font
+
+```css
+:root {
+  --font-family: 'Roboto', sans-serif;
+}
+
+body {
+  font-family: var(--font-family);
+}
+
+button,
+input {
+  font: inherit;
+}
+```
+
+The HTML font link loads the font; the CSS variable stores the font list; `font-family` applies it. `font: inherit` lets form controls use their parent's font settings too. The fallback `sans-serif` is used if the named font is unavailable.
+
+Examples supplied by font websites may contain placeholders such as `<weight>` or `<uniquifier>`. Replace those placeholders if using the example. Extra variable-font settings are not always needed for a basic font-family declaration.
+
+A missing semicolon can accidentally join two declarations and make both invalid:
+
+```css
+/* Correct: the semicolon separates these declarations. */
+body {
+  font-family: var(--font-family);
+  background-color: #16171d;
+}
+```
+
 ## Hover, focus, transitions, and selection
 
 ```css
@@ -1046,7 +1098,7 @@ This styles selected text. A selector such as `p::selection` limits the rule to 
 }
 
 .archive-link::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   right: 0;
@@ -1142,6 +1194,99 @@ Use `alt` to express an image's purpose in context. A useful screenshot descript
 - Test zoom and narrow viewports.
 - Use links for navigation and buttons for actions.
 
+## Contrast, keyboard access, and audits
+
+### Color contrast and transparency
+
+WCAG AA requires at least **4.5:1** for normal text and **3:1** for large text. Large text means at least 24 CSS pixels for normal weight, or approximately 18.67 CSS pixels when bold. Relevant non-text information, such as a custom focus indicator, generally needs **3:1** against adjacent colors.
+
+Check the actual rendered colors. `opacity` affects the whole element, including its text. A readable text color can become too faint when opacity is reduced. Transparent backgrounds must be combined with the colors behind them before calculating contrast.
+
+```css
+.date {
+  color: #94a3b8;
+  /* Avoid reducing opacity without recalculating text contrast. */
+}
+```
+
+Do not confuse text-to-background contrast with link recognition. A link can have enough background contrast while being difficult to distinguish from the surrounding text. An underline is a clear non-color cue. If using weight or another persistent cue instead, verify that the difference remains obvious with the real font and fallback fonts. A hover-only change cannot help someone who has not found the link yet.
+
+Reference: [WCAG contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) and [use of color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html).
+
+### Focus is different from hover and active
+
+| Selector                | When it applies                                                              |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `:hover`                | A pointing device is over the element                                        |
+| `:active`               | The element is being activated, such as while a mouse button is held         |
+| `:focus-visible`        | The focused element needs a visible focus indicator according to the browser |
+| `[aria-pressed='true']` | The HTML attribute says a toggle button is pressed                           |
+
+```css
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #5eead4;
+  outline-offset: 4px;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+```
+
+Removing an underline does not mean removing the focus outline. `outline` also differs from `border`: it does not take space in normal layout.
+
+### Skip links and accessible headings
+
+```html
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header><!-- Navigation and introduction --></header>
+<main id="main-content" tabindex="-1">
+  <h1>Page content</h1>
+</main>
+```
+
+`tabindex="-1"` makes the target focusable without adding it to the normal Tab order. The skip link lets keyboard users bypass repeated content. Hide the link visually until it receives focus, then position it clearly above the page content. Test the native link behavior in a browser, not just a simulated DOM.
+
+Use heading levels for structure rather than appearance. A job title or subtitle does not automatically need to be a heading. A heading with `display: none` is also removed from the accessibility tree; use a visually hidden technique if the heading should remain available to screen readers.
+
+### Labels, current location, and toggle state
+
+```jsx
+<button
+  type="button"
+  aria-pressed={showOpenOnly}
+  onClick={() => setShowOpenOnly(!showOpenOnly)}
+>
+  Show open items
+</button>
+```
+
+`aria-pressed` communicates a toggle button's state; it does not change state or add styling by itself. `aria-current="location"` can identify the current section link. Do not use the two attributes interchangeably.
+
+Repeated action links benefit from specific names:
+
+```jsx
+<button aria-label={`Delete item: ${props.title}`} onClick={props.onDelete}>
+  Delete
+</button>
+```
+
+The backticks create a template literal. `${props.title}` inserts the title. Keep the visible label in the accessible name so speech and screen reader users can relate it to the interface.
+
+### What a complete audit still needs
+
+- Review source structure, labels, contrast, assets, and fragment links.
+- Use Tab, Shift+Tab, Enter, and Space where appropriate.
+- Check narrow screens, short screens, zoom, and increased text spacing.
+- Check that sticky content does not obscure focused controls.
+- Test a real screen reader and reduced-motion/high-contrast settings.
+- Verify live links, external fonts and icons, and linked documents such as PDFs.
+
+A successful build, passing unit tests, valid PDF syntax, or a clean automated scan does not establish full WCAG compliance. A tagged PDF can still have incorrect reading order or metadata. Record what was actually tested and what remains unverified.
+
+Reference: [WCAG 2.2 quick reference](https://www.w3.org/WAI/WCAG22/quickref/).
+
 ## Organizing a stylesheet
 
 A practical order is:
@@ -1155,6 +1300,16 @@ A practical order is:
 - Responsive overrides.
 
 Use descriptive comments, such as `/* Navigation */`, near the relevant rules. Keep related selectors close together. Consistency matters more than choosing one universal order.
+
+For more visible section boundaries, use the same comment style throughout:
+
+```css
+/* ========================================
+   Form controls
+   ======================================== */
+```
+
+Use meaningful section names rather than numbers, which become difficult to maintain when moving sections.
 
 Repeated selectors are sometimes intentional, especially in media queries. Identical duplicate declarations add noise; conflicting duplicates require checking the cascade before removal.
 
@@ -1185,7 +1340,7 @@ JavaScript variables hold values. Functions group reusable steps, and arrays and
 ```javascript
 const task = {
   id: 1,
-  title: "Learn JavaScript",
+  title: 'Learn JavaScript',
   completed: false,
 };
 
@@ -1211,7 +1366,7 @@ Use **camelCase** for variables and functions: `taskList`, `findTaskById`. React
 Use `const` when a variable will not be reassigned. Use `let` when it will.
 
 ```javascript
-const title = "Learn React";
+const title = 'Learn React';
 let count = 0;
 count++;
 ```
@@ -1219,8 +1374,8 @@ count++;
 `const` does not make objects or arrays immutable:
 
 ```javascript
-const titles = ["Learn JavaScript"];
-titles.push("Learn React"); // Allowed: changes the array's contents.
+const titles = ['Learn JavaScript'];
+titles.push('Learn React'); // Allowed: changes the array's contents.
 // titles = [];           // Not allowed: reassigns the variable.
 ```
 
@@ -1229,10 +1384,10 @@ titles.push("Learn React"); // Allowed: changes the array's contents.
 ### Converting strings to numbers
 
 ```javascript
-Number("43.8"); // 43.8
-Number("43px"); // NaN
-parseInt("43px", 10); // 43
-parseInt("43.8", 10); // 43, not 44
+Number('43.8'); // 43.8
+Number('43px'); // NaN
+parseInt('43px', 10); // 43
+parseInt('43.8', 10); // 43, not 44
 ```
 
 `Number()` converts the whole value. `parseInt()` reads an integer prefix from a string; `10` means decimal. It does not round. An empty string becomes `0` with `Number()` but `NaN` with `parseInt()`.
@@ -1429,8 +1584,8 @@ Each method operates on the array returned by the previous step.
 
 ```javascript
 const tasks = [
-  { id: 1, title: "Read a chapter", completed: false },
-  { id: 2, title: "Write notes", completed: true },
+  { id: 1, title: 'Read a chapter', completed: false },
+  { id: 2, title: 'Write notes', completed: true },
 ];
 
 const titles = tasks
@@ -1463,7 +1618,24 @@ Check that a match exists before reading or changing its properties.
 
 Call methods with parentheses: `items.slice(1, -1)`. `items.slice[...]` is property access, not a method call.
 
+`.length` has no parentheses because it is a property whose value you read. `filter()` is a method you call; it returns an array, and that array has its own `.length`.
+
+```javascript
+const openCount = items.filter((item) => item.completed === false).length;
+```
+
 For numeric ascending order, use `(a, b) => a.price - b.price`. Reverse the subtraction for descending order.
+
+### every and parsed data
+
+`.every()` returns `true` only if every visited element passes the callback's check. It returns `true` for an empty array too.
+
+```javascript
+[2, 4, 6].every((number) => number > 0); // true
+[2, -4, 6].every((number) => number > 0); // false
+```
+
+`Array.isArray(value)` only checks the container. `[null, 'hello', 42]` is an array, but it may not contain the objects your application needs.
 
 ## Spread syntax and immutable updates
 
@@ -1476,7 +1648,7 @@ const extended = [...numbers, 4];
 ```
 
 ```javascript
-const original = { id: 1, title: "Learn", completed: false };
+const original = { id: 1, title: 'Learn', completed: false };
 const updated = { ...original, completed: true };
 ```
 
@@ -1533,9 +1705,9 @@ The **DOM** is the browser's object representation of the HTML document.
 ```
 
 ```javascript
-const listElement = document.querySelector("#item-list");
-const itemElement = document.createElement("li");
-itemElement.textContent = "Read a chapter";
+const listElement = document.querySelector('#item-list');
+const itemElement = document.createElement('li');
+itemElement.textContent = 'Read a chapter';
 listElement.appendChild(itemElement);
 ```
 
@@ -1558,8 +1730,8 @@ Use `textContent` for user-entered text rather than treating it as HTML.
 ### Events and handlers
 
 ```javascript
-button.addEventListener("click", () => {
-  console.log("Clicked");
+button.addEventListener('click', () => {
+  console.log('Clicked');
 });
 ```
 
@@ -1570,7 +1742,7 @@ The callback is the **event handler**: code that runs when the event occurs. It 
 - `submit`: submitting a form, including through Enter.
 
 ```javascript
-form.addEventListener("submit", (event) => {
+form.addEventListener('submit', (event) => {
   event.preventDefault();
   const title = input.value.trim();
   if (!title) return;
@@ -1598,16 +1770,82 @@ Browser code can use `document`. A normal Node.js process cannot: it has no HTML
 
 `node --check app.js` checks syntax without executing browser APIs. It does not prove that browser behavior works.
 
+### Highlighting the current section
+
+In-page links provide navigation with ordinary HTML. JavaScript can additionally mark which section the visitor is reading.
+
+```html
+<nav aria-label="On this page">
+  <a href="#introduction">Introduction</a>
+  <a href="#examples">Examples</a>
+</nav>
+<main>
+  <section id="introduction"><h2>Introduction</h2></section>
+  <section id="examples"><h2>Examples</h2></section>
+</main>
+```
+
+```javascript
+const links = [...document.querySelectorAll('nav a[href^="#"]')];
+const sections = links.map((link) =>
+  document.getElementById(link.hash.slice(1)),
+);
+
+function updateCurrentSection() {
+  let current = sections[0];
+
+  for (const section of sections) {
+    if (section.getBoundingClientRect().top <= 160) {
+      current = section;
+    }
+  }
+
+  for (const link of links) {
+    if (link.hash === `#${current.id}`) {
+      link.setAttribute('aria-current', 'location');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  }
+}
+
+window.addEventListener('scroll', updateCurrentSection, { passive: true });
+window.addEventListener('resize', updateCurrentSection);
+updateCurrentSection();
+```
+
+Run this script after the example markup exists, such as with `defer`. This small example assumes at least one navigation link and a valid section for every fragment ID.
+
+`getBoundingClientRect().top` measures the section's top relative to the viewport. The last section whose heading passed the chosen boundary becomes current. The initial call sets the state before scrolling. No JavaScript scroll action is needed for ordinary links.
+
+```css
+nav a::before {
+  content: '';
+  display: inline-block;
+  width: 2rem;
+  height: 2px;
+  background: currentColor;
+}
+
+nav a[aria-current='location']::before {
+  width: 4rem;
+}
+```
+
+The attribute selector connects the script's state to the CSS. A longer line provides a cue beyond color. Review the cascade: a general class selector can override a less specific navigation rule even if that rule appears later.
+
+For a longer page, batch scroll updates with `requestAnimationFrame` so only one update is queued per frame. Consider restored scroll positions, hash changes, and late-loading content. Test the real layout; simulated section coordinates only test the selection logic.
+
 ## JSON and localStorage
 
 ```javascript
-localStorage.setItem("items", JSON.stringify(items));
+localStorage.setItem('items', JSON.stringify(items));
 ```
 
 `localStorage` stores strings. `JSON.stringify()` converts serializable data into JSON text.
 
 ```javascript
-const savedItems = localStorage.getItem("items");
+const savedItems = localStorage.getItem('items');
 if (savedItems !== null) {
   items = JSON.parse(savedItems);
 }
@@ -1626,6 +1864,42 @@ Important habits:
 - Preserve an empty saved array; an empty list is valid data.
 
 Browser storage belongs to a website origin and browser profile. A local preview and a deployed website have separate storage. It does not synchronize between devices and should not be treated as a secure place for secrets.
+
+### Handling parsing and storage failures
+
+```javascript
+function loadItems() {
+  try {
+    const savedItems = localStorage.getItem('saved-items');
+
+    if (savedItems !== null) {
+      const parsedItems = JSON.parse(savedItems);
+      const isValid =
+        Array.isArray(parsedItems) &&
+        parsedItems.every(
+          (item) =>
+            item !== null &&
+            typeof item === 'object' &&
+            (typeof item.id === 'string' || typeof item.id === 'number') &&
+            typeof item.title === 'string' &&
+            typeof item.completed === 'boolean',
+        );
+
+      if (isValid) return parsedItems;
+    }
+  } catch (error) {
+    console.error('Could not read saved items:', error);
+  }
+
+  return [];
+}
+```
+
+`try` runs the code normally. If it throws, `catch` receives the error. If no error occurs, `catch` is skipped. Valid JSON with an unexpected shape does not necessarily throw, so validation is a separate step.
+
+Put `getItem()` inside `try` too: reading storage itself can fail. Saving needs its own error handling. Logging an error does not save the data; explain storage failures to users when that matters for the application.
+
+This example checks basic field types. Other requirements, such as nonempty titles, finite numeric IDs, and unique IDs, require additional validation. `null` must be checked separately because `typeof null` is `'object'`.
 
 ## React components and JSX
 
@@ -1663,7 +1937,7 @@ function Item(props) {
   return (
     <li>
       {props.title}
-      {props.completed ? " — Done" : " — To do"}
+      {props.completed ? ' — Done' : ' — To do'}
     </li>
   );
 }
@@ -1690,7 +1964,7 @@ Props are values supplied by a parent. Do not mutate them. `completed={false}` p
 ### State remembers values between renders
 
 ```jsx
-import { useState } from "react";
+import { useState } from 'react';
 
 function App() {
   const [showOnlyIncomplete, setShowOnlyIncomplete] = useState(true);
@@ -1713,6 +1987,397 @@ Pass the event handler rather than calling it during rendering:
 ```
 
 State setters do not change the state variable in the already-running render. Use new arrays and objects when updating state instead of mutating existing state.
+
+### Components inside a list
+
+```jsx
+function ListItem(props) {
+  return <li>{props.title}</li>;
+}
+
+<ul>
+  {items.map((item) => (
+    <ListItem key={item.id} title={item.title} />
+  ))}
+</ul>;
+```
+
+For three objects, `map()` produces three `ListItem` elements. React renders the `<li>` returned by each component. The browser receives a list containing three `<li>` elements, not custom `<ListItem>` HTML tags.
+
+### Separate component files
+
+```jsx
+// components/ListItem.jsx
+function ListItem(props) {
+  return <li>{props.title}</li>;
+}
+
+export default ListItem;
+```
+
+Import the component where it is used:
+
+```jsx
+import ListItem from './components/ListItem.jsx';
+```
+
+The path is relative to the importing file. Move the component function and export together; remove the duplicate definition from the original file. Moving a component does not automatically move its parent's state.
+
+## React forms and shared state
+
+### Values flow down; callbacks report actions
+
+Keep shared state in the closest parent that needs to coordinate it. A child receives values and functions through props.
+
+```jsx
+<ListItem title={item.title} onDelete={() => deleteItem(item.id)} />
+```
+
+Inside the child:
+
+```jsx
+<button type="button" onClick={props.onDelete}>
+  Delete
+</button>
+```
+
+The parent owns the array and knows how to update it. The child owns the markup for one displayed item. Clicking calls the function supplied by the parent.
+
+`onDelete={() => deleteItem(item.id)}` passes a function for later. `onDelete={deleteItem(item.id)}` calls `deleteItem` immediately during rendering and passes its return value. A function declaration belongs in JavaScript code, not among a component's JSX props.
+
+### Controlled inputs and submitting with Enter
+
+```jsx
+function EntryForm(props) {
+  return (
+    <form onSubmit={props.onSubmit}>
+      <label htmlFor="entry-title">New entry</label>
+      <input
+        id="entry-title"
+        type="text"
+        value={props.title}
+        onChange={(event) => props.onTitleChange(event.target.value)}
+      />
+      <button type="submit">Add entry</button>
+    </form>
+  );
+}
+
+export default EntryForm;
+```
+
+The parent can connect its state like this:
+
+```jsx
+const [title, setTitle] = useState('');
+
+function addEntry(event) {
+  event.preventDefault();
+  const trimmedTitle = title.trim();
+  if (trimmedTitle === '') return;
+
+  const entry = {
+    id: crypto.randomUUID(),
+    title: trimmedTitle,
+    completed: false,
+  };
+
+  setEntries((previousEntries) => [...previousEntries, entry]);
+  setTitle('');
+}
+
+// Inside the parent's returned JSX:
+<EntryForm title={title} onTitleChange={setTitle} onSubmit={addEntry} />;
+```
+
+The snippet assumes the parent also has `entries` state. `crypto.randomUUID()` generates the ID when the entry is created, not on every render. It is available in secure browser contexts, including HTTPS and localhost.
+
+The flow is: type -> `onChange` -> callback -> parent state -> new props -> input display. On submission, `preventDefault()` prevents the normal form navigation. Both the submit button and Enter can submit the form. Keep the input and submit button inside the form; ordinary filter or delete buttons should use `type="button"`.
+
+The prop name `onTitleChange` is chosen by us. `setTitle` is the function passed as its value. Calling `props.onTitleChange('Hello')` therefore calls the parent's `setTitle('Hello')`.
+
+### Derived values and conditional rendering
+
+```jsx
+const visibleEntries = entries.filter(
+  (entry) => !showOpenOnly || entry.completed === false,
+);
+const remainingCount = entries.filter(
+  (entry) => entry.completed === false,
+).length;
+
+// Inside returned JSX:
+<p>Remaining: {remainingCount}</p>;
+```
+
+Calculate these values from existing state instead of storing extra copies that can become inconsistent. React recalculates them when the component renders.
+
+```jsx
+{
+  visibleEntries.length === 0 && <p>No entries to show.</p>;
+}
+```
+
+The comparison produces a boolean. With `&&`, the paragraph is evaluated only when the comparison is true; React does not display the false boolean. Replacing `&&` with `||` reverses when the paragraph is evaluated in this particular expression. Prefer an explicit comparison over `visibleEntries.length && ...`, because React can render the number `0`.
+
+### Conditional classes and matching CSS selectors
+
+```jsx
+<span className={props.completed ? 'entry-title is-completed' : 'entry-title'}>
+  {props.title}
+</span>
+```
+
+```css
+.entry-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.entry-title.is-completed {
+  text-decoration: line-through;
+}
+```
+
+The base class is always present. A completed entry gains the second class. The selector with no space matches one element with both classes; `.entry-title .is-completed` would instead look for a descendant.
+
+For controls, `input[type='text']` selects text fields rather than checkboxes. `button[aria-pressed='true']` styles the state set by JSX; CSS does not toggle the attribute itself.
+
+Reference: [React: sharing state](https://react.dev/learn/sharing-state-between-components).
+
+## React hooks and browser storage
+
+A Hook is a React function such as `useState` or `useEffect` that provides React functionality. Call Hooks at the top level of a component or custom Hook, not in conditions, loops, or event handlers.
+
+```jsx
+import { useEffect, useState } from 'react';
+
+function App() {
+  const [items, setItems] = useState(loadItems);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('saved-items', JSON.stringify(items));
+    } catch (error) {
+      console.error('Could not save items:', error);
+    }
+  }, [items]);
+
+  return <p>Saved items: {items.length}</p>;
+}
+```
+
+This example uses the `loadItems` helper from the storage section and runs in a browser. The setter is available for future item actions.
+
+- `useState(loadItems)` passes an initializer function rather than calling it on every render.
+- `useEffect` synchronizes React state with an external system, here browser storage.
+- `[items]` makes this effect run after the initial commit and subsequent commits where `items` changed.
+- Read saved state before the first saving effect; otherwise default data can overwrite existing saved data.
+- Preserve an empty saved list as valid data.
+
+An effect with `[]` runs after mounting, not after every change to a particular state value. Omitting the dependency array runs it after every commit. Do not use an effect for a count that can be calculated while rendering.
+
+In development, StrictMode can call an initializer twice and run an extra effect setup/cleanup cycle to expose problems. This can explain repeated startup console messages. Initializers should not write storage or perform other side effects.
+
+Reference: [React: useEffect](https://react.dev/reference/react/useEffect).
+
+## Automated testing
+
+This section is a reference. Begin with one tiny test; you do not need to memorize every import or tool before using tests.
+
+### Formatting, linting, building, and testing
+
+| Tool or check         | What it does                                                        |
+| --------------------- | ------------------------------------------------------------------- |
+| Prettier              | Formats code consistently                                           |
+| Oxlint                | Reports configured code problems and suspicious patterns            |
+| Vite build            | Builds the app for production; does not prove interactions work     |
+| Vitest                | Runs automated tests and reports their results                      |
+| React Testing Library | Renders components and finds elements by how users encounter them   |
+| user-event            | Simulates user interactions such as typing and clicking             |
+| jest-dom              | Adds DOM assertions such as `toBeInTheDocument()`                   |
+| jsdom                 | Simulates DOM APIs in Node.js; does not perform real browser layout |
+
+### A first test
+
+```javascript
+import { expect, test } from 'vitest';
+
+test('adds two numbers', () => {
+  expect(2 + 3).toBe(5);
+});
+```
+
+`test` names and defines the test. `expect` starts an assertion. `.toBe(5)` calls a matcher. Changing `5` to `6` makes the test fail: the expected result differs from the received result. Missing the matcher's parentheses means it is not called.
+
+### Preparing React tests with Vite
+
+Install development dependencies from the project folder:
+
+```bash
+npm install -D vitest jsdom @testing-library/react @testing-library/dom @testing-library/jest-dom @testing-library/user-event
+```
+
+Add to the existing Vite configuration without removing its React plugin:
+
+```javascript
+test: {
+  environment: 'jsdom',
+}
+```
+
+Add a script inside `package.json`'s `scripts` object:
+
+```json
+"test": "vitest"
+```
+
+These two snippets are additions inside existing objects, not complete standalone files. Keep the required commas between properties.
+
+### Reading test imports
+
+```jsx
+import { afterEach, expect, test } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom/vitest';
+```
+
+Braces import named exports. `userEvent` is a default import. The jest-dom import has no assigned variable: it runs setup code that adds matchers to Vitest's assertions.
+
+```jsx
+function Greeting() {
+  return <h1>Hello</h1>;
+}
+
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+});
+
+test('shows the heading', () => {
+  render(<Greeting />);
+  expect(
+    screen.getByRole('heading', { name: 'Hello', level: 1 }),
+  ).toBeInTheDocument();
+});
+```
+
+Use this example with the imports above in a `.test.jsx` file. `render` mounts the component in the simulated document. `screen.getByRole` finds an element by its role and accessible name. Literal string names are case-sensitive: `'New entry'` differs from `'New Entry'`.
+
+`afterEach` runs after each test. Explicit `cleanup()` removes mounted components when automatic cleanup is not configured. Clearing localStorage here affects the test environment, not your everyday browser profile. Clear storage before a test too if other setup can seed it; restore spies and mocks after using them.
+
+### Typing, clicking, and waiting
+
+For the `EntryForm` component shown earlier, an interaction test can check the callback:
+
+```jsx
+import { vi } from 'vitest';
+import EntryForm from './components/EntryForm.jsx';
+
+test('submits the entry form', async () => {
+  const user = userEvent.setup();
+  const onSubmit = vi.fn((event) => event.preventDefault());
+
+  render(
+    <EntryForm
+      title="Read a chapter"
+      onTitleChange={vi.fn()}
+      onSubmit={onSubmit}
+    />,
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(onSubmit).toHaveBeenCalledOnce();
+});
+```
+
+This snippet also needs the shared imports and cleanup above. It tests submission, not updating an entire list. `vi.fn()` records calls; it does not implement the parent's state logic. To test typing and adding an entry together, render the parent that owns that state.
+
+`await user.type(input, 'Read a chapter')` waits for simulated typing. `await user.click(button)` waits for the click interaction. A test that uses `await` needs an `async` callback. Type the input before clicking submit if the application rejects empty values.
+
+### Commands and common failures
+
+```bash
+npm test
+npm test -- --run
+```
+
+The first command watches for changes. The second runs once and exits. Stop watch mode with `q` or Ctrl+C.
+
+- **No test suite found:** the file has no registered test, perhaps only imports.
+- **Unable to find an element:** check the actual label, role, visibility, and whether the action that creates it happened.
+- **Multiple matching elements:** make the query more specific or use `within` to search a particular container.
+- **Expected versus received differs:** inspect the assertion and application behavior before changing the expected value.
+
+Test adding, rejecting blank input, toggling, deleting the correct item, filtering, empty states, and persistence. Test network and storage failures where they affect important behavior. Mocked responses verify your handling logic, not the availability of the real service. Keep real-browser checks for layout, zoom, and actual keyboard behavior.
+
+References: [Vitest environments](https://vitest.dev/guide/environment.html) and [React Testing Library API](https://testing-library.com/docs/react-testing-library/api/).
+
+## Fetching API data and caching
+
+An API request can supply data that a page should not hard-code, such as a public repository's star count.
+
+```javascript
+async function loadStarCount(repository, countElement) {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${repository}`, {
+      headers: { Accept: 'application/vnd.github+json' },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) throw new Error('Request failed');
+
+    const data = await response.json();
+    const count = data.stargazers_count;
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new Error('Invalid count');
+    }
+
+    countElement.textContent = String(count);
+  } catch {
+    countElement.textContent = '—';
+  }
+}
+```
+
+The function expects a public `owner/repository` name and an existing DOM element. It does not send an API token. Never put private API credentials in browser code.
+
+- `async` makes the function return a Promise; `await` waits for asynchronous work inside it.
+- `fetch` can resolve even for HTTP error responses, so check `response.ok`.
+- `response.json()` parses the body asynchronously; validate the returned shape.
+- `AbortSignal.timeout(8000)` limits the request to about eight seconds in supporting browsers.
+- `0` is valid data. An unavailable count is not the same as zero.
+- `textContent` inserts text rather than interpreting external data as HTML.
+
+`data-*` attributes can connect markup to script:
+
+```html
+<a
+  data-repository="octocat/Hello-World"
+  href="https://github.com/octocat/Hello-World/stargazers"
+>
+  <span data-count>—</span>
+</a>
+```
+
+```javascript
+const link = document.querySelector('[data-repository]');
+loadStarCount(link.dataset.repository, link.querySelector('[data-count]'));
+```
+
+The normal link still works without JavaScript. JavaScript enhances it with a count.
+
+### Cache data without hiding failures
+
+`sessionStorage` normally lasts for the tab's page session and survives reloads; `localStorage` can remain after the browser is closed. Both store strings and can be unavailable.
+
+Save cached data with a timestamp, for example `{ count: 0, savedAt: Date.now() }`. Validate the parsed values, then compare `Date.now() - savedAt` with a chosen lifetime. A 15-minute cache reduces repeated requests but means a displayed count can be up to 15 minutes old. Handle missing, expired, malformed, and inaccessible caches.
+
+For public unauthenticated GitHub REST requests, the primary limit is normally 60 requests per hour per originating IP. Multiple visitors can share an IP. Caching reduces requests but does not remove the limit. A timeout, HTTP error, or unavailable count should not break the rest of the page.
+
+References: [GitHub repository API](https://docs.github.com/en/rest/repos/repos#get-a-repository) and [rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
 
 ## Development tools and application stacks
 
@@ -1740,6 +2405,27 @@ npm run preview
 ```
 
 `dev` starts the development server. `build` creates production output, normally in `dist/`. `preview` serves that built output locally for checking; it is not the production hosting service. Keep the development-server terminal running while developing.
+
+### Project files and generated output
+
+| File or folder      | Responsibility                                                 |
+| ------------------- | -------------------------------------------------------------- |
+| `index.html`        | Vite's HTML entry point, in the project root rather than `src` |
+| `src/`              | Application source code and styles                             |
+| `public/`           | Files served directly, such as favicons                        |
+| `package.json`      | Scripts and declared dependencies                              |
+| `package-lock.json` | Resolved dependency versions; normally commit it               |
+| `node_modules/`     | Installed packages; do not commit it                           |
+| `dist/`             | Generated production output; do not edit it manually           |
+| `vite.config.js`    | Build, plugin, and test configuration                          |
+
+Starter logos, images, and CSS can be removed once nothing references them. Keep tooling and dependency files that the application still uses. A new build recreates `dist`; deleting it does not delete your source code.
+
+### Markdown documentation
+
+A useful README explains what the project does, its live URL, features, technologies, setup commands, tests, build/deployment steps, and relevant limitations. Learning projects can also describe what was practiced without claiming professional experience with every tool.
+
+Use `#` for the project title, `##` for sections, `-` for list items, and fenced code blocks for commands. Keep blank lines around headings, lists, and code blocks. Describe real behavior; for example, browser storage is not a shared database.
 
 ### PERN and MERN
 
@@ -1793,6 +2479,22 @@ Saving a file, committing it, pushing it, and deploying it are separate steps. A
 A hosting service connected to a Git repository can deploy automatically after a push to the configured production branch. Check deployment status instead of assuming a successful push means publication has finished.
 
 A plain HTML/CSS site usually needs no build command. Its publish directory must contain the entry HTML file and referenced assets. DNS configuration is separate from deploying updated files.
+
+For a typical Vite deployment, use `npm run build` as the build command and `dist` as the publish directory. Confirm that the connected repository and production branch are correct.
+
+### Review, commit, and push
+
+```bash
+git status
+git diff
+git add README.md
+git commit -m "Update documentation"
+git push
+```
+
+Replace the staged filenames with the changes you intend to publish. Untracked files do not appear in ordinary `git diff`; inspect them too. A remote-tracking branch such as `origin/main` records the last known remote state, not a live connection to GitHub.
+
+If a coding tool reports `Could not resolve host`, check whether the same command works in your own terminal. A sandbox can block all networking and produce a DNS-looking error even when the computer's connection works. Check permissions and connection evidence before editing system DNS settings. Report a failed push honestly instead of assuming the site has been updated.
 
 ## Reusable learning workflow
 
