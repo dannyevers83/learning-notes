@@ -8,6 +8,7 @@ My **personal notes** while learning web development
 - CSS
 - JavaScript
 - React
+- Node.js and Express
 - Accessibility
 - Automated testing
 - APIs and browser storage
@@ -27,6 +28,8 @@ These notes are a reference, not a reading assignment. Choose one topic and try 
 - [Automated testing](LEARNING-NOTES.md#automated-testing)
 - [Contrast, keyboard access, and audits](LEARNING-NOTES.md#contrast-keyboard-access-and-audits)
 - [API data and caching](LEARNING-NOTES.md#fetching-api-data-and-caching)
+- [Express routes and HTTP](LEARNING-NOTES.md#nodejs-and-express-apis)
+- [React-to-API connections](LEARNING-NOTES.md#connecting-react-to-an-api)
 
 ## Example
 

@@ -25,6 +25,8 @@ Quick links:
 - [Automated tests, one concept at a time](#automated-testing)
 - [Contrast, keyboard access, and audits](#contrast-keyboard-access-and-audits)
 - [APIs, error handling, and caching](#fetching-api-data-and-caching)
+- [Node.js, Express, routes, and HTTP](#nodejs-and-express-apis)
+- [Connecting React to a backend](#connecting-react-to-an-api)
 - [Tools, PERN, and practice roadmap](#development-tools-and-application-stacks)
 - [Git and publishing](#git-and-publishing-basics)
 
@@ -2378,6 +2380,232 @@ Save cached data with a timestamp, for example `{ count: 0, savedAt: Date.now() 
 For public unauthenticated GitHub REST requests, the primary limit is normally 60 requests per hour per originating IP. Multiple visitors can share an IP. Caching reduces requests but does not remove the limit. A timeout, HTTP error, or unavailable count should not break the rest of the page.
 
 References: [GitHub repository API](https://docs.github.com/en/rest/repos/repos#get-a-repository) and [rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+
+## Node.js and Express APIs
+
+### Browser, server, and database
+
+- React runs the interface in the browser.
+- Node.js runs JavaScript outside the browser, including a backend server.
+- Express helps the backend match routes and send responses.
+- A database stores data beyond the lifetime of a server process.
+
+A server array is not a database. It can remember changes between HTTP requests while the same process runs, but those changes disappear on restart. Different server instances have separate arrays. localStorage belongs to a browser, not the Express server.
+
+### Starting an Express project
+
+```bash
+npm init -y
+npm install express
+```
+
+Use `"type": "module"` in package.json when writing `import` and `export` in `.js` files.
+
+```javascript
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+app.get('/message', (req, res) => {
+  res.json({ message: 'Hello from the server' });
+});
+
+const port = Number(process.env.PORT || 3000);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server listening on port ${port}`);
+});
+```
+
+`app.listen` starts listening for requests. Express does not automatically define a `/` route. `Cannot GET /` can mean the server works but that particular route does not exist.
+
+`req` is the incoming request; `res` is used to send the response. `app.use(express.json())` must run before routes that read JSON request bodies.
+
+### HTTP methods and status codes
+
+| Method | Example        | Purpose                 |
+| ------ | -------------- | ----------------------- |
+| GET    | `/entries`     | Read the list           |
+| GET    | `/entries/:id` | Read one entry          |
+| POST   | `/entries`     | Create an entry         |
+| PATCH  | `/entries/:id` | Change part of an entry |
+| DELETE | `/entries/:id` | Remove an entry         |
+
+| Status | Meaning in a small API                    |
+| ------ | ----------------------------------------- |
+| 200    | Successful response with data             |
+| 201    | A resource was created                    |
+| 204    | Success without a response body           |
+| 400    | Invalid request data                      |
+| 404    | Route or resource not found               |
+| 413    | Request body exceeds the configured limit |
+| 500    | Unexpected server failure                 |
+
+`res.json(value)` serializes JavaScript data as JSON. `res.status(201).json(entry)` sends JSON with a different status. `res.status(204).send()` has no body, so the client must not call `.json()` on it.
+
+### Route parameters, IDs, and finding data
+
+```javascript
+app.get('/entries/:id', (req, res) => {
+  const entry = entries.find((entry) => entry.id === req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: 'Entry not found' });
+  }
+  res.json(entry);
+});
+```
+
+This snippet assumes `app` and an `entries` array already exist. `:id` captures the matching URL segment. In Express, route parameter values are strings. Numeric IDs need deliberate conversion before a strict comparison; UUID strings can be compared directly. Keep ID types consistent rather than adding conversions randomly.
+
+`crypto.randomUUID()` calls the function and returns a UUID string. Without parentheses, `crypto.randomUUID` refers to the function itself. Generate IDs when creating records, not every time an existing record is read. Seed records generated at startup get new IDs after each restart unless stored permanently.
+
+Use `find()` when you need the object and `findIndex()` when you need its array position. Index zero is the first position; `-1` means not found.
+
+```javascript
+const index = entries.findIndex((entry) => entry.id === id);
+if (index === -1) {
+  return res.status(404).json({ error: 'Entry not found' });
+}
+entries.splice(index, 1);
+res.status(204).send();
+```
+
+The second argument to `splice(index, 1)` is the number of elements to remove. Check `-1` first: `splice(-1, 1)` removes the last element rather than doing nothing.
+
+### Validate before modifying server data
+
+```javascript
+const title = req.body?.title;
+if (typeof title !== 'string') {
+  return res.status(400).json({ error: 'Title must be a string' });
+}
+const trimmedTitle = title.trim();
+if (trimmedTitle === '') {
+  return res.status(400).json({ error: 'Title cannot be empty' });
+}
+```
+
+These are statements inside a route handler. Optional chaining `?.` safely returns undefined when the body is absent. Check the type before calling string methods. Trim spaces before checking for an empty value. Use `return` with an error response to stop the handler from continuing and sending a second response.
+
+For a completion flag, use `typeof completed === 'boolean'`. Both true and false are valid. `if (!completed)` incorrectly rejects false. The string `"true"` is not the boolean true.
+
+An Express array can be changed with `push`, `splice`, or an object assignment while practicing in-memory data. React state is different: produce a new array or object and call its setter so React can render the change.
+
+### Watching files and reading terminal output
+
+```bash
+node --watch index.js
+```
+
+Node restarts when watched files change. A package script such as `"dev": "node --watch index.js"` lets you use `npm run dev`. That script is project-specific: in a frontend it may start Vite, and in a backend it may start Node.
+
+An open terminal does not guarantee a running server. Read its latest output. Browser console logs come from browser JavaScript; backend logs appear in the server terminal.
+
+Every watched restart resets in-memory records. If an ID worked before a file save but now gives 404, read the list again and check whether the server regenerated it.
+
+### Sending requests with curl
+
+```bash
+curl -i -X POST http://localhost:3000/entries \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Read a chapter"}'
+```
+
+`-X` chooses the HTTP method, `-H` adds a header, `-d` supplies the body, and `-i` includes response headers/status. The server response appears in the terminal. A browser address bar makes GET requests; entering a URL does not send a POST or PATCH request.
+
+Test successful and invalid requests. A response with 400 and a validation message is expected when deliberately sending bad data. A syntax check cannot detect every runtime problem, such as using an undeclared variable or calling `.find()` on the wrong value.
+
+## Connecting React to an API
+
+### Development proxy and two running servers
+
+```javascript
+// Add inside the existing Vite configuration object.
+server: {
+  proxy: {
+    '/entries': 'http://localhost:3000',
+  },
+}
+```
+
+The snippet is an object-property example, not a complete standalone file. Vite forwards matching local development requests to Express. Keep both servers running: the frontend handles the interface and the backend answers API requests.
+
+Open the frontend root URL, usually `http://localhost:5173/`, to run React. Opening `http://localhost:5173/entries` instead shows the proxied JSON response. React's effects and logs will not run on that JSON page.
+
+### GET, POST, PATCH, and DELETE from the browser
+
+```javascript
+const response = await fetch('/entries');
+if (!response.ok) throw new Error('Could not load entries');
+const entries = await response.json();
+```
+
+Use this inside an async function or module context. Fetch a JSON list, validate its shape, then place it in state with `setEntries(entries)`. The setter requests a render; it does not synchronously change the state variable in the already-running function.
+
+```javascript
+const response = await fetch('/entries', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ title }),
+});
+```
+
+POST sends the title to the server. Read the server's successful response and use its ID and other fields rather than creating another client-side ID for the same record.
+
+For PATCH, request `/entries/${id}` and send the field being changed, for example `{ completed: true }`. For DELETE, send the method without a JSON body when the route does not require one. Do not parse the empty body of a 204 response.
+
+Update the visible list only after the operation succeeds. This keeps the screen consistent when a request fails. Read the updated object returned by PATCH instead of guessing what the server accepted.
+
+### Loading, errors, and request cleanup
+
+```jsx
+const [isLoading, setIsLoading] = useState(true);
+const [error, setError] = useState('');
+
+// In returned JSX:
+{
+  isLoading && <p role="status">Loading entries...</p>;
+}
+{
+  error && <p role="alert">{error}</p>;
+}
+{
+  !isLoading && !error && visibleEntries.length === 0 && (
+    <p>No entries to show</p>
+  );
+}
+```
+
+The empty message should not compete with loading or error feedback. A request should use try/catch/finally: try the request, catch the failure, and stop the loading state in finally. Put fetch itself inside try, not just the code after it. Clear an old error when starting a new attempt.
+
+An AbortController can cancel a request when the component unmounts. Ignore results from aborted requests so they cannot overwrite newer state. React StrictMode intentionally performs an extra effect setup/cleanup cycle in development; duplicate startup requests are a cue to write correct cleanup, not to remove StrictMode.
+
+### Updating state after await
+
+```jsx
+setEntries((currentEntries) => [...currentEntries, newEntry]);
+setEntries((currentEntries) =>
+  currentEntries.filter((entry) => entry.id !== id),
+);
+```
+
+An async function retains the state from the render in which it started. Other actions can complete while it waits. A functional setter receives the current state when React processes the update, reducing the risk of overwriting another change.
+
+Disable relevant controls while saving so double-clicks and repeated Enter presses do not send duplicate writes. A ref can hold an immediate in-flight flag between renders; changing a ref does not itself redraw the interface. Use state as well when the interface needs to show that saving is in progress.
+
+### Testing the API connection
+
+Mock fetch responses when testing React so the suite can run without a live backend. Include delayed responses, HTTP failures, rejected network requests, malformed JSON/data, empty lists, duplicate submissions, and empty 204 bodies.
+
+Backend tests should exercise route validation and middleware separately. In-process request streams can check Express behavior without opening a TCP socket. Passing those tests does not prove CORS, HTTPS, DNS, live hosting, or actual browser requests work; check those after deployment.
+
+### Hosting frontend and backend separately
+
+A Vite development proxy is not a deployed server. A hosted static frontend needs a real backend URL or a hosting-platform proxy. A variable such as `VITE_API_URL` is embedded in the public client bundle, so it must never hold a private credential.
+
+An Express host may supply its port through process.env.PORT and require binding to 0.0.0.0. Supply a start script, a health route, and the allowed frontend origins. Configure those origins deliberately. CORS is a browser rule, not login or authorization: non-browser clients can still call a public API.
+
+A free host may sleep and restart. Temporary memory then disappears, and the first request can be slow. A shared demo should explain that behavior. Database persistence and accounts are separate later features, not properties that appear automatically when an API goes online.
 
 ## Development tools and application stacks
 
