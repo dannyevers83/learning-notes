@@ -1,6 +1,6 @@
 # Web Development Learning Notes
 
-A growing reference for HTML, CSS, JavaScript, React, accessibility, and publishing websites. The examples are general patterns that can be reused in different projects.
+A growing reference for HTML, CSS, JavaScript, React, Node.js, PostgreSQL, accessibility, and publishing websites. The examples are general patterns that can be reused in different projects.
 
 ## How to use these notes
 
@@ -27,6 +27,14 @@ Quick links:
 - [APIs, error handling, and caching](#fetching-api-data-and-caching)
 - [Node.js, Express, routes, and HTTP](#nodejs-and-express-apis)
 - [Connecting React to a backend](#connecting-react-to-an-api)
+- [Refs, scrolling, and dependent selections](#react-refs-and-dependent-selections)
+- [Tailwind classes and theme tokens](#tailwind-css-and-theme-tokens)
+- [Organizing backend code](#organizing-backend-code)
+- [PostgreSQL and SQL](#postgresql-and-sql)
+- [Connections, Docker, migrations, and seeds](#database-connections-migrations-and-seeds)
+- [Dates, availability, and overlapping appointments](#dates-times-and-availability)
+- [Hosting and moving a database](#hosting-and-moving-a-database)
+- [SEO, robots.txt, and sitemaps](#seo-and-search-engine-discovery)
 - [Tools, PERN, and practice roadmap](#development-tools-and-application-stacks)
 - [Git and publishing](#git-and-publishing-basics)
 
@@ -2606,6 +2614,373 @@ A Vite development proxy is not a deployed server. A hosted static frontend need
 An Express host may supply its port through process.env.PORT and require binding to 0.0.0.0. Supply a start script, a health route, and the allowed frontend origins. Configure those origins deliberately. CORS is a browser rule, not login or authorization: non-browser clients can still call a public API.
 
 A free host may sleep and restart. Temporary memory then disappears, and the first request can be slow. A shared demo should explain that behavior. Database persistence and accounts are separate later features, not properties that appear automatically when an API goes online.
+
+## React refs and dependent selections
+
+State holds information used to render the interface. A ref can hold a reference to a DOM element without causing a render when its value changes.
+
+```jsx
+import { useEffect, useRef } from 'react';
+
+function DetailsSection({ selectedTime }) {
+  const detailsRef = useRef(null);
+
+  useEffect(() => {
+    if (!selectedTime) return;
+
+    detailsRef.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+      block: 'start',
+    });
+  }, [selectedTime]);
+
+  return selectedTime ? (
+    <section ref={detailsRef}>
+      <h2>Your details</h2>
+    </section>
+  ) : null;
+}
+```
+
+React assigns the element to `detailsRef.current` when it commits the rendered element. The effect then scrolls to it. Calling the scroll immediately after setting state may run before the new element exists. Scrolling does not move keyboard focus; consider focus separately when a workflow needs it.
+
+Selections can depend on earlier choices: service → date → time → contact details. When the service or date changes, clear the selected time and fetch the matching availability. Display loading, error, and empty states. Ignore stale responses using effect cleanup, or cancel them with an `AbortController`, so an older request cannot replace newer results.
+
+During submission, use a pending state, disable repeated submission, and show the server's result. The server must still validate the request: a disabled button is only a browser convenience.
+
+Reference: [React: useRef](https://react.dev/reference/react/useRef).
+
+## Tailwind CSS and theme tokens
+
+Tailwind uses utility classes to apply CSS in markup. The browser still receives ordinary CSS; Flexbox, Grid, spacing, and responsive design still work by the same rules.
+
+| Class                     | Meaning                                             |
+| ------------------------- | --------------------------------------------------- |
+| `flex items-center`       | Flex layout with cross-axis alignment               |
+| `grid grid-cols-2 gap-3`  | Two grid columns with a gap                         |
+| `p-4`                     | Padding on every side                               |
+| `px-4 py-2`               | Horizontal and vertical padding                     |
+| `mt-6`                    | Margin at the top                                   |
+| `w-full`                  | Full available width                                |
+| `md:grid-cols-3`          | Three columns from the configured medium breakpoint |
+| `hover:bg-primary`        | Background utility applied during hover             |
+| `focus-visible:outline-2` | Outline width applied during visible keyboard focus |
+
+Numbers such as `4` use the theme's spacing scale; they do not mean four pixels. A visible focus indicator also needs an appropriate outline style, color, and contrast.
+
+Theme tokens describe a color's purpose, such as `background`, `foreground`, `primary`, or `muted`. This makes a palette easier to update consistently. Component libraries may pair background and foreground tokens to describe text on that background.
+
+```css
+@import 'tailwindcss';
+
+:root {
+  --brand: #b7aaa0;
+}
+
+@theme inline {
+  --color-primary: var(--brand);
+}
+```
+
+This Tailwind CSS v4 example makes `bg-primary` and `text-primary` available. It defines a color; it does not prove that every use has sufficient contrast.
+
+A component generator such as shadcn adds component source files to your project. Read and adapt the components you use. An accessible foundation still needs meaningful labels, visible focus, and sensible application behavior.
+
+References: [Tailwind utilities](https://tailwindcss.com/docs/styling-with-utility-classes), [theme variables](https://tailwindcss.com/docs/theme).
+
+## Organizing backend code
+
+Split code when responsibilities become difficult to follow. A small feature does not need a new file for every line.
+
+| Location       | Responsibility                                       |
+| -------------- | ---------------------------------------------------- |
+| `app.js`       | Express middleware and route registration            |
+| `server.js`    | Starting the process, listening, and shutdown        |
+| `routes/`      | Connecting a URL and HTTP method to a handler        |
+| `controllers/` | Reading the request and sending the response         |
+| `validators/`  | Checking the shape and meaning of input              |
+| `models/`      | Reading and writing database data                    |
+| `services/`    | Application rules, such as availability calculations |
+| `utils/`       | Small reusable helpers                               |
+| `db/`          | Connection pool, migrations, and database scripts    |
+
+A typical request travels through route → controller → validation and application rules → database query → response. These names are conventions; understand each file's job rather than memorizing one directory tree.
+
+### Validate and normalize on the server
+
+`trim()` removes surrounding whitespace from strings. Check the value's type before calling string methods. Use normalization deliberately: a name can be trimmed, but a password should not silently change.
+
+Validate IDs against real records. Read the price and duration from the database instead of trusting values sent by the browser. A booking can store a snapshot of those values so later price changes do not alter the original agreement.
+
+For international phone numbers, use a maintained phone parsing library with the appropriate default country. Simple length checks cannot cover all numbering plans. A number that passes format validation has not been proven to belong to the customer; that requires verification, such as a code sent to the number.
+
+Use `400` for invalid input, `404` for a missing resource, `409` for a booking conflict, and `503` for temporary maintenance when appropriate. Return useful public messages without database credentials or internal stack traces.
+
+## PostgreSQL and SQL
+
+A relational database stores rows in tables. Relationships connect rows through keys.
+
+| SQL feature                | Purpose                                                |
+| -------------------------- | ------------------------------------------------------ |
+| `PRIMARY KEY`              | Identifies a row uniquely and cannot be null           |
+| `REFERENCES`               | Requires a related row to exist                        |
+| `NOT NULL`                 | Requires a value; does not reject an empty string      |
+| `CHECK`                    | Enforces a condition, such as a positive duration      |
+| `integer`                  | Whole numbers, useful for minutes and money in cents   |
+| `uuid`                     | An identifier type; a UUID is not an access permission |
+| `date`                     | A calendar date                                        |
+| `time without time zone`   | A time of day without a date or zone                   |
+| `timestamp with time zone` | An instant, suitable for creation times                |
+
+```sql
+CREATE TABLE services (
+  id text PRIMARY KEY,
+  name text NOT NULL,
+  duration_minutes integer NOT NULL CHECK (duration_minutes > 0),
+  price_cents integer NOT NULL CHECK (price_cents >= 0)
+);
+
+INSERT INTO services (id, name, duration_minutes, price_cents)
+VALUES ('consultation', 'Consultation', 30, 2500);
+
+SELECT id, name, duration_minutes, price_cents
+FROM services
+ORDER BY name;
+```
+
+`2500` represents 25.00 in a currency with 100 cents per unit. Format the value for display at the interface boundary.
+
+### Parameterized queries in Node.js
+
+```javascript
+import pg from 'pg';
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+async function findServiceById(id) {
+  const result = await pool.query(
+    `SELECT id, name, duration_minutes, price_cents
+     FROM services
+     WHERE id = $1`,
+    [id],
+  );
+
+  return result.rows[0] ?? null;
+}
+```
+
+This assumes an ES module project with `pg` installed and a database URL supplied to the process. Create one shared pool per application process rather than a pool for each request.
+
+`$1` receives the first value from `[id]`. Keep user input in the values array instead of interpolating it into SQL. Parameters represent values; they cannot replace table or column names. Parameterization prevents SQL injection through those values, while validation and authorization remain separate responsibilities.
+
+`result.rows` is an array. `rows[0]` reads its first row; `?? null` provides an explicit missing result. `INSERT ... RETURNING id` can return the identifier generated by the database.
+
+### Inspecting data with psql
+
+Inside `psql`, `\dt` lists tables, `\d services` describes a table, `\x` toggles expanded output, and `\q` exits. If output opens in a pager, press `q` to leave the pager. `-P pager=off` disables it for a command.
+
+```sql
+SELECT service_id, appointment_date::text AS booking_date
+FROM bookings
+ORDER BY created_at DESC
+LIMIT 1;
+```
+
+Use column names and expanded output when terminal columns wrap. `::text` converts the date to text for inspection; `AS booking_date` changes the result label, not the stored column.
+
+References: [PostgreSQL constraints](https://www.postgresql.org/docs/current/ddl-constraints.html), [node-postgres queries](https://node-postgres.com/features/queries).
+
+## Database connections, migrations, and seeds
+
+### Local PostgreSQL with Docker
+
+Docker Compose can run PostgreSQL in a container while Node.js runs on your computer. The host and container ports can differ:
+
+```yaml
+ports:
+  - '127.0.0.1:5433:5432'
+```
+
+Node.js on the host connects to `localhost:5433`. PostgreSQL inside the container listens on `5432`. Another container on the same Compose network normally uses the database service name and container port. Connecting to the wrong local PostgreSQL instance can cause a misleading “role does not exist” error.
+
+```bash
+docker compose up -d database
+docker compose ps -a
+docker compose logs database
+docker compose exec database pg_isready -U app_user -d app_database
+```
+
+These examples assume the Compose service is named `database`; use the actual service, user, and database names. A container with status `Created` has not successfully started. `pg_isready` checks server readiness; an application query is still needed to confirm its credentials and permissions.
+
+A volume preserves database files across container replacement. Follow the image's instructions for the volume mount path, which can differ between PostgreSQL versions. Changing initialization environment variables does not rename users in an existing database volume. Do not delete the volume as a routine connection fix.
+
+### Environment variables
+
+Store local credentials in an ignored `.env` file and commit an `.env.example` containing placeholders. Never place a database password in a public `VITE_` variable, README, screenshot, or Git commit.
+
+```bash
+node --env-file=../.env src/db/checkConnection.js
+```
+
+The environment-file path is relative to the terminal's current directory. This example assumes the script exists and uses a Node.js version supporting `--env-file`. A successful `SELECT 1 AS connected` confirms that this process can execute a query; it does not prove migrations or application permissions are correct.
+
+### Migrations and seeds have different jobs
+
+A migration changes the schema: tables, columns, indexes, or constraints. A seed supplies initial reference data, such as services. Customer bookings are application data, not disposable seed data.
+
+Keep ordered migration files in Git, for example `001_create_services.sql` and `002_create_bookings.sql`. A runner records applied filenames in a migration table and uses transactions where supported. Do not edit an already applied migration to make a new change; add another migration.
+
+An idempotent seed can use `ON CONFLICT (id) DO NOTHING` to skip existing IDs. This does not update an existing price, and repeated execution must not erase customer records.
+
+For multiple queries in one transaction, check out a client with `pool.connect()` and use that same client for `BEGIN`, the queries, and `COMMIT` or `ROLLBACK`. Release it in `finally`. Separate calls to `pool.query()` may use different connections and cannot be assumed to share a transaction.
+
+Reference: [node-postgres transactions](https://node-postgres.com/features/transactions).
+
+## Dates, times, and availability
+
+### Calendar dates and instants are different
+
+An appointment date such as `2030-06-12` is a calendar date. A creation timestamp represents an instant. In an ISO timestamp, `Z` means UTC, not the user's local timezone.
+
+Parsing means turning a representation into a value that code can work with. Parsing is not the same as validating: JavaScript can normalize an impossible day into the next month. For a strict date, check `YYYY-MM-DD`, parse in a deliberate timezone, and compare the resulting year, month, and day with the input.
+
+Compute “today” in the business's timezone, such as `Europe/Amsterdam`. `toISOString().slice(0, 10)` uses UTC and can disagree with the local date around midnight. Keep a local appointment date as a date value rather than converting it unnecessarily to an instant.
+
+### Convert time to minutes for comparisons
+
+```javascript
+function timeToMinutes(time) {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+```
+
+These helpers assume validated same-day times and minute values within that day. Validate incoming `HH:mm` values before using them. An appointment at 10:00 lasting 30 minutes occupies minutes 600 through 630.
+
+Generate candidate starts with an interval such as 15 minutes. Keep a start only when its end is no later than closing time. Compare bookings for the relevant date and resource, such as the selected staff member.
+
+```javascript
+function overlaps(start, end, existingStart, existingEnd) {
+  return start < existingEnd && end > existingStart;
+}
+
+const appointments = [{ start: 600, end: 630 }];
+const candidateStarts = [600, 615, 630, 645];
+const duration = 30;
+
+const availableStarts = candidateStarts.filter(
+  (start) =>
+    !appointments.some((appointment) =>
+      overlaps(start, start + duration, appointment.start, appointment.end),
+    ),
+);
+// [630, 645]
+```
+
+`some()` asks whether at least one booking conflicts. `!` changes that into “no booking conflicts.” `filter()` keeps those starts. Strict `<` and `>` allow a new booking to begin exactly when another ends.
+
+Opening hours, closed days, staff schedules, breaks, and elapsed times today are separate rules. A basic overlap filter does not implement them automatically.
+
+### Prevent overlapping writes in the database
+
+Two customers can submit the same available time together. Both requests can pass a JavaScript availability check before either has inserted a booking. The database needs a rule that also rejects conflicting concurrent writes.
+
+PostgreSQL range types can describe `[start, end)` intervals: include the start, exclude the end. An exclusion constraint using the overlap operator `&&` can reject intersecting ranges. Scope the rule by staff member or resource when multiple simultaneous appointments are allowed. A global constraint would otherwise restrict the entire business to one appointment at a time.
+
+An exclusion violation has PostgreSQL code `23P01`. Check the expected constraint and return a `409 Conflict`, then let the interface refresh availability. Do not silently book another time.
+
+Reference: [PostgreSQL range types and exclusion constraints](https://www.postgresql.org/docs/current/rangetypes.html).
+
+## Hosting and moving a database
+
+### The application server and database can have different hosts
+
+Render can run an Express process while Neon provides PostgreSQL. The server connects using a private environment variable such as `DATABASE_URL`. The browser calls the API and must never receive that database credential.
+
+A single Express deployment can also serve the built Vite frontend. In development, Vite proxies `/api` to Express; in production, Express can serve `dist/` and API routes from the same origin. Register API routes before a frontend fallback so missing API URLs return JSON errors instead of HTML.
+
+Use the host's `PORT` and required network binding. Add a health endpoint, inspect startup logs, and verify the application after deployment. A successful GitHub push alone does not prove that the new version is live.
+
+Providers may offer pooled and direct PostgreSQL URLs. Choose according to the driver, migration tool, and workload; migration tools can need direct or session-compatible connections. Preserve the provider's TLS verification settings. Do not work around certificate errors by disabling verification.
+
+### Move data without losing it
+
+A schema migration and a database transfer are different operations. A transfer moves existing rows to another database.
+
+- Prepare the destination schema and test the transfer procedure on a separate database or branch.
+- Pause writes before the final copy, or use a migration method that explicitly handles continuing writes.
+- Copy related records in an order that respects foreign keys, preserving IDs and timestamps.
+- Verify actual field values as well as row counts. Equal counts can still hide different data.
+- Use transactions, rollback on failure, and a completion record so an accidental repeat cannot duplicate the transfer.
+- Switch the application's connection setting, redeploy, test reads and writes, and resume service.
+- Retain a usable backup or old database until the migration is verified. Track expiration dates for temporary databases.
+
+Timestamp comparisons need care: JavaScript `Date` uses millisecond precision, while PostgreSQL can store microseconds. A transfer that must preserve exact timestamps should avoid losing precision through a JavaScript conversion.
+
+Free hosting can suspend idle compute or impose usage limits. Database compute hours are not always wall-clock hours: `0.25 compute units × 4 active hours = 1 CU-hour`. Check current provider documentation rather than assuming a fixed free allowance forever.
+
+## SEO and search engine discovery
+
+SEO helps search engines discover and understand a website. It cannot guarantee indexing, a ranking, or a particular search-result appearance.
+
+### Page information
+
+Use a descriptive title, a useful meta description, meaningful visible text, and logical headings. Keep important page content available in HTML when possible. Write image alternatives for the image's purpose and set dimensions to reduce layout movement.
+
+```html
+<title>Alex Morgan | Web Developer</title>
+<meta
+  name="description"
+  content="Explore Alex Morgan's web development projects and experience."
+/>
+<link rel="canonical" href="https://example.com/" />
+```
+
+A canonical link identifies the preferred URL when the same content is available at different addresses. Search engines can still choose another canonical. Open Graph metadata supplies information for shared-link previews; it is not a promise of a higher ranking. JSON-LD can describe public facts about a person or website and should match the visible content.
+
+### robots.txt and sitemap.xml
+
+`robots.txt`, with an **s**, belongs at the website root. It gives crawlers instructions and can point to a sitemap:
+
+```text
+User-agent: *
+Allow: /
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+This permits crawling. A missing `robots.txt` does not automatically block crawling. Blocking crawling is different from requesting that a page stay out of search results; use the appropriate indexing controls for the latter.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/</loc>
+  </url>
+</urlset>
+```
+
+List canonical pages in a sitemap. Sections such as `/#about` are anchors within the homepage, not additional pages. In a plain HTML site served from the repository root, put these files beside `index.html`. In Vite, files placed in `public/` are copied to the build root. Check the deployed URLs rather than assuming every project uses the same public path.
+
+### Google Search Console
+
+Verify ownership of the correct property. Domain verification commonly uses a TXT record at the DNS provider; retain the verification record afterward. Ownership verification does not index the website.
+
+After the hosting deployment succeeds, open the deployed sitemap and robots file. Submit the sitemap in Search Console, inspect the homepage, and request indexing. If a sitemap cannot be read, inspect the detailed error and use a live URL test to check whether Google can fetch it. Do not assume that waiting will fix a missing file or server error.
+
+Reports can take time to update. Repeatedly requesting indexing does not make crawling faster. A valid sitemap helps discovery but does not guarantee inclusion in search results.
+
+References: [Google SEO starter guide](https://developers.google.com/search/docs/fundamentals/seo-starter-guide), [sitemap troubleshooting](https://support.google.com/webmasters/answer/7451001), [requesting indexing](https://developers.google.com/search/docs/crawling-indexing/ask-google-to-recrawl).
 
 ## Development tools and application stacks
 
